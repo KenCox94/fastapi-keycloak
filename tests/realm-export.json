@@ -680,9 +680,7 @@
             "type": "js",
             "logic": "POSITIVE",
             "decisionStrategy": "AFFIRMATIVE",
-            "config": {
-              "code": "// by default, grants any permission associated with this policy\n$evaluation.grant();\n"
-            }
+            "config": {}
           },
           {
             "id": "762a6303-aab7-439b-8a41-0973964640ce",

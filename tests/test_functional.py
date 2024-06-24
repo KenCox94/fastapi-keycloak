@@ -340,7 +340,7 @@ class TestAPIFunctional(BaseTestClass):
         assert groups[0].name == foo_group.name
 
         # Create Subgroup 1 by parent object
-        subgroup1: KeycloakGroup = idp.create_group(
+        subgroup1: KeycloakGroup = idp.create_subgroup(
             group_name="Subgroup 01", parent=foo_group
         )
         assert subgroup1 is not None
@@ -348,7 +348,7 @@ class TestAPIFunctional(BaseTestClass):
         assert subgroup1.path == f"{foo_group.path}/Subgroup 01"
 
         # Create Subgroup 2 by parent id
-        subgroup2: KeycloakGroup = idp.create_group(
+        subgroup2: KeycloakGroup = idp.create_subgroup(
             group_name="Subgroup 02", parent=foo_group.id
         )
         assert subgroup2 is not None
@@ -356,7 +356,7 @@ class TestAPIFunctional(BaseTestClass):
         assert subgroup2.path == f"{foo_group.path}/Subgroup 02"
 
         # Create Subgroup Level 3
-        subgroup_l3: KeycloakGroup = idp.create_group(
+        subgroup_l3: KeycloakGroup = idp.create_subgroup(
             group_name="Subgroup l3", parent=subgroup2
         )
         assert subgroup_l3 is not None
@@ -364,7 +364,7 @@ class TestAPIFunctional(BaseTestClass):
         assert subgroup_l3.path == f"{subgroup2.path}/Subgroup l3"
 
         # Create Subgroup Level 4
-        subgroup_l4: KeycloakGroup = idp.create_group(
+        subgroup_l4: KeycloakGroup = idp.create_subgroup(
             group_name="Subgroup l4", parent=subgroup_l3
         )
         assert subgroup_l4 is not None

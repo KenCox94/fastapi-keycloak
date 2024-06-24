@@ -218,7 +218,6 @@ class KeycloakToken(BaseModel):
         """String representation of KeycloakToken"""
         return f"Bearer {self.access_token}"
 
-
 class KeycloakGroup(BaseModel):
     """Keycloak representation of a group
 
@@ -234,6 +233,11 @@ class KeycloakGroup(BaseModel):
     path: Optional[str] = None
     realmRoles: Optional[List[str]] = None
     subGroups: Optional[List["KeycloakGroup"]] = None
+    clientRoles: Optional[dict] = None
+    attributes: Optional[dict] = None 
 
+class KeycloakSubGroup(KeycloakGroup):
+    access: Optional[dict] = None
+    parentId: Optional[str] = None
 
 KeycloakGroup.update_forward_refs()

@@ -16,7 +16,7 @@ from fastapi_keycloak import (
 
 app = FastAPI()
 idp = FastAPIKeycloak(
-    server_url="http://localhost:8085/auth",
+    server_url="http://localhost:8085",
     client_id="test-client",
     client_secret="GzgACcJzhzQ4j8kWhmhazt7WSdxDVUyE",
     admin_client_id="admin-cli",

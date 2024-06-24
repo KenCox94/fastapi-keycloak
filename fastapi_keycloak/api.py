@@ -32,6 +32,7 @@ from fastapi_keycloak.model import (
     KeycloakToken,
     KeycloakUser,
     OIDCUser,
+    KeycloakSubGroup
 )
 
 
@@ -125,8 +126,8 @@ class FastAPIKeycloak:
         ```
     """
 
-    _admin_token: str
 
+    _admin_token: str
     def __init__(
             self,
             server_url: str,
@@ -174,8 +175,8 @@ class FastAPIKeycloak:
         Notes:
             - This might result in an infinite recursion if something unforeseen goes wrong
         """
-        if self.token_is_valid(token=self._admin_token):
-            return self._admin_token
+        if self.token_is_valid(token=FastAPIKeycloak._admin_token):
+            return FastAPIKeycloak._admin_token
         self._get_admin_token()
         return self.admin_token
 
@@ -198,7 +199,7 @@ class FastAPIKeycloak:
                 Possibly a Keycloak misconfiguration. Check if the admin-cli client has `Full Scope Allowed`
                 and that the `Service Account Roles` contain all roles from `account` and `realm_management`"""
             )
-        self._admin_token = value
+        FastAPIKeycloak._admin_token = value
 
     def add_swagger_config(self, app: FastAPI):
         """Adds the client id and secret securely to the swagger ui.
@@ -607,7 +608,7 @@ class FastAPIKeycloak:
 
     @result_or_error(response_model=KeycloakGroup)
     def create_group(
-            self, group_name: str, parent: Union[KeycloakGroup, str] = None
+            self, group_name: str#, parent: Union[KeycloakGroup, str] = None
     ) -> KeycloakGroup:
         """Create a group on the realm
 
@@ -623,16 +624,8 @@ class FastAPIKeycloak:
         """
 
         # If it's an objetc id get an instance of the object
-        if isinstance(parent, str):
-            parent = self.get_group(parent)
-
-        if parent is not None:
-            groups_uri = f"{self.groups_uri}/{parent.id}/children"
-            path = f"{parent.path}/{group_name}"
-        else:
-            groups_uri = self.groups_uri
-            path = f"/{group_name}"
-
+        groups_uri = self.groups_uri
+        path = f"/{group_name}"
         response = self._admin_request(
             url=groups_uri, data={"name": group_name}, method=HTTPMethod.POST
         )
@@ -640,6 +633,14 @@ class FastAPIKeycloak:
             return self.get_group_by_path(path=path, search_in_subgroups=True)
         else:
             return response
+    
+    @result_or_error(response_model=KeycloakSubGroup)
+    def create_subgroup(self, group_name: str, parent: Union[KeycloakGroup, str]) -> KeycloakSubGroup :
+        if isinstance(parent, str):
+            parent = self.get_group(parent)
+        groups_uri = f"{self.groups_uri}/{parent.id}/children"
+        path = f"{parent.path}/{group_name}"
+        return self._admin_request(url=groups_uri, data={"name": group_name}, method=HTTPMethod.POST)
 
     @result_or_error()
     def delete_group(self, group_id: str) -> dict:
