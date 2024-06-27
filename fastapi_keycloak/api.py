@@ -201,7 +201,7 @@ class FastAPIKeycloak:
             )
         FastAPIKeycloak._admin_token = value
 
-    def add_swagger_config(self, app: FastAPI):
+    def add_swagger_config(self, app: FastAPI, usePkce=True):
         """Adds the client id and secret securely to the swagger ui.
         Enabling Swagger ui users to perform actions they usually need the client credentials, without exposing them.
 
@@ -212,7 +212,7 @@ class FastAPIKeycloak:
             None: Inplace method
         """
         app.swagger_ui_init_oauth = {
-            "usePkceWithAuthorizationCodeGrant": True,
+            "usePkceWithAuthorizationCodeGrant": usePkce,
             "clientId": self.client_id,
             "clientSecret": self.client_secret,
         }
