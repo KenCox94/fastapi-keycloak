@@ -16,6 +16,10 @@ const Group = struct {
     id: []const u8,
 };
 
+const credentials = "grant_type=client_credentials&client_secret=BIcczGsZ6I8W5zf0rZg5qSexlloQLPKB&client_id=admin-cli";
+
+const content_type = "application/x-www-form-urlencoded";
+
 pub fn build(b: *std.Build) !void {
     dockerUp(b);
     try pytest(b);
@@ -27,8 +31,8 @@ fn auth() !std.json.Parsed(AccessToken) {
 
     const resp = try sendApiRequest(&allocator, "http://localhost:8085/realms/Test/protocol/openid-connect/token", .POST, .{
         .server_header_buffer = &buffer,
-        .headers = .{ .content_type = .{ .override = "application/x-www-form-urlencoded" } },
-    }, "grant_type=client_credentials&client_secret=BIcczGsZ6I8W5zf0rZg5qSexlloQLPKB&client_id=admin-cli");
+        .headers = .{ .content_type = .{ .override = content_type } },
+    }, credentials);
     defer allocator.free(resp);
 
     const token = try std.json.parseFromSlice(AccessToken, allocator, resp, .{
