@@ -17,7 +17,6 @@ const Group = struct {
 };
 
 const credentials = "grant_type=client_credentials&client_secret=BIcczGsZ6I8W5zf0rZg5qSexlloQLPKB&client_id=admin-cli";
-
 const content_type = "application/x-www-form-urlencoded";
 
 pub fn build(b: *std.Build) !void {
@@ -48,7 +47,7 @@ fn cleanUp(token: *const std.json.Parsed(AccessToken)) !void {
 
     const auth_header = try std.fmt.allocPrint(allocator, "{s} {s}", .{ token.value.token_type, token.value.access_token });
     defer allocator.free(auth_header);
-    const resp = try sendApiRequest(&allocator, "http://localhost:8085/admin/realms/Test/groups", .GET, .{
+    var resp = try sendApiRequest(&allocator, "http://localhost:8085/admin/realms/Test/groups", .GET, .{
         .server_header_buffer = &buffer,
         .headers = .{
             .content_type = .default,
@@ -89,13 +88,14 @@ fn cleanUp(token: *const std.json.Parsed(AccessToken)) !void {
 
     for (list.items) |i| {
         const url = try std.fmt.allocPrint(allocator, "http://localhost:8085/admin/realms/Test/groups/{s}", .{i.value.id});
-        _ = try sendApiRequest(&allocator, url, .DELETE, .{
+        resp = try sendApiRequest(&allocator, url, .DELETE, .{
             .server_header_buffer = &buffer,
             .headers = .{
                 .content_type = .default,
                 .authorization = .{ .override = auth_header },
             },
         }, null);
+        defer allocator.free(resp);
     }
 }
 

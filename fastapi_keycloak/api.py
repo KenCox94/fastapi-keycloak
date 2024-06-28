@@ -130,15 +130,8 @@ class FastAPIKeycloak:
     _admin_token: str
     def __init__(
             self,
-            server_url: str,
-            client_id: str,
-            client_secret: str,
-            realm: str,
-            admin_client_secret: str,
-            callback_uri: str,
-            admin_client_id: str = "admin-cli",
-            scope: str = "openid profile email",
-            timeout: int = 10,
+            server_url,
+            **kwargs
     ):
         """FastAPIKeycloak constructor
 
@@ -154,16 +147,19 @@ class FastAPIKeycloak:
             timeout (int): Timeout in seconds to wait for the server
             scope (str): OIDC scope
         """
+        
+
         self.server_url = server_url
-        self.realm = realm
-        self.client_id = client_id
-        self.client_secret = client_secret
-        self.admin_client_id = admin_client_id
-        self.admin_client_secret = admin_client_secret
-        self.callback_uri = callback_uri
-        self.timeout = timeout
-        self.scope = scope
-        self._get_admin_token()  # Requests an admin access token on startup
+        self.realm = kwargs.get("realm")
+        self.client_id = kwargs.get("client_id")
+        self.client_secret = kwargs.get("client_secret")
+        self.admin_client_secret = kwargs.get("admin_client_secret")
+        self.callback_uri = kwargs.get("callback_uri")
+        self.admin_client_id = kwargs.get("admin_client_id", "admin-cli")
+        self.timeout = kwargs.get("timeout", 10)
+        self.scope = kwargs.get("scope", "openid profile email")
+        if self.admin_client_secret:
+            self._get_admin_token()  # Requests an admin access token on startup
 
     @property
     def admin_token(self):
