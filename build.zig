@@ -69,10 +69,12 @@ fn cleanUp(token: *const std.json.Parsed(AccessToken)) !void {
             value = try std.mem.join(allocator, "", &[_][]const u8{ str, "}" });
             defer allocator.free(value);
 
-            const group = try std.json.parseFromSlice(Group, allocator, value, .{
+            const group = std.json.parseFromSlice(Group, allocator, value, .{
                 .allocate = .alloc_always,
                 .ignore_unknown_fields = true,
-            });
+            }) catch {
+                continue;
+            };
 
             try list.append(group);
         } else {
@@ -137,7 +139,10 @@ fn pytest(b: *std.Build) !void {
     const pytest_cmd = b.addSystemCommand(&[_][]const u8{ "poetry", "run", "pytest" });
     const pytest_step = b.step("pytest", "run python test");
     pytest_step.dependOn(&pytest_cmd.step);
-    const token = try auth();
+
+    const token = auth() catch {
+        return;
+    };
     defer token.deinit();
     try cleanUp(&token);
 }
