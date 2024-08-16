@@ -6,9 +6,9 @@ from json import JSONDecodeError
 from typing import Any, Callable, List, Type, Union
 from urllib.parse import urlencode
 
-import requests
+import httpx as requests
 from fastapi import Depends, FastAPI, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordBearer, OAuth2AuthorizationCodeBearer, OAuth2
 from jose import ExpiredSignatureError, JWTError, jwt
 from jose.exceptions import JWTClaimsError
 from pydantic import BaseModel
@@ -126,8 +126,8 @@ class FastAPIKeycloak:
         ```
     """
 
-
     _admin_token: str
+    
     def __init__(
             self,
             server_url,
@@ -155,12 +155,13 @@ class FastAPIKeycloak:
         self.client_secret = kwargs.get("client_secret")
         self.admin_client_secret = kwargs.get("admin_client_secret")
         self.callback_uri = kwargs.get("callback_uri")
+        self.certs = kwargs.get("cert")
         self.admin_client_id = kwargs.get("admin_client_id", "admin-cli")
         self.timeout = kwargs.get("timeout", 10)
-        self.scope = kwargs.get("scope", "openid profile email")
-        if self.admin_client_secret:
-            self._get_admin_token()  # Requests an admin access token on startup
-
+        self.scopes = kwargs.get("scopes", {"openid":"", "profile" : "", "email": ""})
+        self.auth_flow = kwargs.get("auth_flow", "password")
+        self._get_admin_token()  
+    
     @property
     def admin_token(self):
         """Holds an AccessToken for the `admin-cli` client
@@ -171,10 +172,9 @@ class FastAPIKeycloak:
         Notes:
             - This might result in an infinite recursion if something unforeseen goes wrong
         """
-        if self.token_is_valid(token=FastAPIKeycloak._admin_token):
-            return FastAPIKeycloak._admin_token
-        self._get_admin_token()
-        return self.admin_token
+        if self.token_is_valid(token=self._admin_token):
+            return self._admin_token
+        return self._get_admin_token()
 
     @admin_token.setter
     def admin_token(self, value: str):
@@ -195,7 +195,7 @@ class FastAPIKeycloak:
                 Possibly a Keycloak misconfiguration. Check if the admin-cli client has `Full Scope Allowed`
                 and that the `Service Account Roles` contain all roles from `account` and `realm_management`"""
             )
-        FastAPIKeycloak._admin_token = value
+        self._admin_token = value
 
     def add_swagger_config(self, app: FastAPI, usePkce=True):
         """Adds the client id and secret securely to the swagger ui.
@@ -214,15 +214,23 @@ class FastAPIKeycloak:
         }
 
     @functools.cached_property
-    def user_auth_scheme(self) -> OAuth2PasswordBearer:
+    def user_auth_scheme(self) -> OAuth2:
         """Returns the auth scheme to register the endpoints with swagger
 
         Returns:
             OAuth2PasswordBearer: Auth scheme for swagger
         """
-        return OAuth2PasswordBearer(tokenUrl=self.token_uri)
+        if self.auth_flow == "authorization_code":
+            return OAuth2AuthorizationCodeBearer(
+                    tokenUrl=self.token_uri,
+                    authorizationUrl=self.authorization_uri,
+                    scopes=self.scopes
+            )
+        else:
+            return OAuth2PasswordBearer(tokenUrl=self.token_uri)
+        
 
-    def get_current_user(self, required_roles: List[str] = None, extra_fields: List[str] = None) -> Callable[OAuth2PasswordBearer, OIDCUser]:
+    def get_current_user(self, required_roles: List[str] = None, extra_fields: List[str] = None) -> Callable[OAuth2, OIDCUser]:
         """Returns the current user based on an access token in the HTTP-header. Optionally verifies roles are possessed
         by the user
 
@@ -241,7 +249,7 @@ class FastAPIKeycloak:
         """
 
         def current_user(
-                token: OAuth2PasswordBearer = Depends(self.user_auth_scheme),
+                token = Depends(self.user_auth_scheme),
         ) -> OIDCUser:
             """Decodes and verifies a JWT to get the current user
 
@@ -282,7 +290,8 @@ class FastAPIKeycloak:
         Returns:
             dict: Open ID Configuration
         """
-        response = requests.get(
+        req = requests.Client(cert=self.certs, verify=False)
+        response = req.get(
             url=f"{self.realm_uri}/.well-known/openid-configuration",
             timeout=self.timeout,
         )
@@ -343,7 +352,8 @@ class FastAPIKeycloak:
             "client_secret": self.admin_client_secret,
             "grant_type": "client_credentials",
         }
-        response = requests.post(url=self.token_uri, headers=headers, data=data, timeout=self.timeout)
+        client = requests.Client(headers=headers, verify=False)
+        response = client.post(url=self.token_uri, data=data, timeout=self.timeout)
         try:
             self.admin_token = response.json()["access_token"]
         except JSONDecodeError as e:
@@ -979,7 +989,7 @@ class FastAPIKeycloak:
             "username": username,
             "password": password,
             "grant_type": "password",
-            "scope": self.scope,
+            "scopes": self.scopes,
         }
         response = requests.post(url=self.token_uri, headers=headers, data=data, timeout=self.timeout)
         if response.status_code == 401:
@@ -1065,7 +1075,7 @@ class FastAPIKeycloak:
     def login_uri(self):
         """The URL for users to login on the realm. Also adds the client id, the callback and the scope."""
         params = {
-            "scope": self.scope,
+            "scopes": self.scopes,
             "response_type": "code",
             "client_id": self.client_id,
             "redirect_uri": self.callback_uri,
@@ -1141,6 +1151,8 @@ class FastAPIKeycloak:
             bool: True if the token is valid
         """
         try:
+            if not token:
+                return False
             self._decode_token(token=token, audience=audience)
             return True
         except (ExpiredSignatureError, JWTError, JWTClaimsError):
